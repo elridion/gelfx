@@ -131,8 +131,8 @@ defmodule Gelfx do
     }
 
     case spawn_conn(state) do
-      {:error, _} = error ->
-        error
+      {:error, _} ->
+        {:error, :ignore}
 
       conn ->
         {:ok, %{state | conn: conn}}
