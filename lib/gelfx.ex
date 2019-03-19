@@ -25,12 +25,12 @@ defmodule Gelfx do
 
   ## Options
   Besides `:level`, `:format` and `:metadata`, which are advised by [Logger](https://hexdocs.pm/logger/Logger.html#module-custom-backends) Gelfx supports:
-  - `:protocol` - either `:tcp` or `:udp`, `:http` is not jet supported, defaults to :tcp
-  - `:format` - defaults to "$message"
+  - `:protocol` - either `:tcp` or `:udp`, `:http` is not jet supported, defaults to :udp
+  - `:format` - defaults to `"$message"`
   - `:host` - hostname of the server running the GELF endpoint
-  - `:hostname` - used for the "host" field in the GELF message, defaults to the hostname returned by `:inet.gethostname()`
-  - `:json_library` - json library to use, has to implement a `encode!/1`
-  - `:port` - port on which the graylog server receives GELF messages
+  - `:hostname` - used as source field in the GELF message, defaults to the hostname returned by `:inet.gethostname()`
+  - `:json_library` - json library to use, has to implement a `encode/1` which returns a `{:ok, json}` tuple in case of success
+  - `:port` - port on which the graylog server runs the respective GELF input
   - `:compression` - either `:gzip` or `:zlib` can be set and will be used for package compression when UDP is used as protocol
 
   ## Message Format
@@ -97,7 +97,6 @@ defmodule Gelfx do
     metadata: [],
     port: 12201,
     protocol: :udp
-    # protocol: :tcp,
   ]
 
   # 2 magic bytes + 8 Msg ID + 1 seq number + 1 seq count
@@ -164,7 +163,13 @@ defmodule Gelfx do
       event
       |> LogEntry.from_event(state)
       |> encode(state)
-      |> submit(state)
+      |> case do
+        {:ok, json} ->
+          submit(json, state)
+
+        error ->
+          error
+      end
     end
 
     {:ok, state}
@@ -186,16 +191,54 @@ defmodule Gelfx do
 
   def flush(socket) when is_port(socket) do
     case :inet.getstat(socket, [:send_pend]) do
-      {:ok, [send_pend: 0]} -> :ok
-      {:ok, _} -> flush(socket)
-      _ -> :error
+      {:ok, [send_pend: 0]} ->
+        :ok
+
+      {:ok, _} ->
+        Process.sleep(10)
+        flush(socket)
+
+      _ ->
+        :error
     end
+  end
+
+  def handle_info({:tcp_error, _socket, _reason}, state) do
+    {:swap_handler, :swap, state, __MODULE__, __MODULE__}
+  end
+
+  def handle_info({:tcp_closed, _socket}, state) do
+    {:swap_handler, :swap, state, __MODULE__, __MODULE__}
   end
 
   def handle_info(_msg, state) do
     {:ok, state}
   end
 
+  def terminate(:swap, state) do
+    [
+      compression: state.compression,
+      host: state.host,
+      hostname: state.hostname,
+      json_library: state.json_library,
+      level: state.level,
+      metadata: state.metadata,
+      port: state.port,
+      protocol: state.protocol
+    ]
+  end
+
+  def terminate(_reason, %__MODULE__{conn: {:udp, {socket, _, _, _}}}) do
+    :gen_udp.close(socket)
+  end
+
+  def terminate(_reason, %__MODULE__{conn: {:tcp, socket}}) do
+    :gen_tcp.close(socket)
+  end
+
+  @doc """
+  Encodes the given `LogEntry` using the configured json library
+  """
   def encode(%LogEntry{} = log_entry, %__MODULE__{} = state) do
     log_entry
     |> Map.from_struct()
@@ -203,15 +246,19 @@ defmodule Gelfx do
   end
 
   def encode(log_entry, %__MODULE__{json_library: json}) when is_map(log_entry) do
-    apply(json, :encode!, [log_entry])
+    apply(json, :encode, [log_entry])
   end
 
+  @doc false
   def meet_level?(_lvl, nil), do: true
 
   def meet_level?(lvl, min) do
     Logger.compare_levels(lvl, min) != :lt
   end
 
+  @doc """
+  Spawns a `:gen_udp` / `:gen_tcp` connection based on the configuration
+  """
   def spawn_conn(%__MODULE__{
         protocol: protocol,
         host: host,
@@ -248,6 +295,13 @@ defmodule Gelfx do
     end
   end
 
+  @doc """
+  Sends the given payload over the connection.
+
+  In case an TCP connection is used the `0x00` delimiter required by gelf is added.
+
+  Should the used connection use UDP the payload is compressed using the configured compression, in case the given payload exceeds the chunk threshold it is chunked.
+  """
   def submit(payload, %__MODULE__{conn: conn, compression: comp}) do
     submit(payload, conn, comp)
   end
@@ -262,7 +316,7 @@ defmodule Gelfx do
       case comp do
         :gzip -> :zlib.compress(payload)
         :zlib -> :zlib.gzip(payload)
-        nil -> payload
+        _ -> payload
       end
 
     :gen_udp.send(socket, host, port, payload)
@@ -284,6 +338,7 @@ defmodule Gelfx do
     end)
   end
 
+  @doc false
   def chunk(binary, chunk_length, sequence_number \\ 0) do
     case binary do
       <<chunk::bytes-size(chunk_length), rest::binary>> ->
@@ -294,6 +349,7 @@ defmodule Gelfx do
     end
   end
 
+  @doc false
   def message_id() do
     mt = :erlang.monotonic_time()
 

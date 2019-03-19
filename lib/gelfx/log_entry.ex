@@ -1,4 +1,5 @@
 defmodule Gelfx.LogEntry do
+  @moduledoc false
   alias Logger.Formatter
 
   @gelf_version "1.1"
@@ -130,9 +131,7 @@ defmodule Gelfx.LogEntry do
   end
 
   def timestamp_to_unix({date, {hour, minute, second, millisecond}}) do
-    # TODO: remove offset
-    offset = 3600
-    timestamp_to_unix({date, {hour, minute, second}}) + millisecond / 1000 - offset
+    timestamp_to_unix({date, {hour, minute, second}}) + millisecond / 1000
   end
 
   def timestamp_to_unix({date, {hour, minute, second}}) do
