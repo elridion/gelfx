@@ -134,7 +134,10 @@ defmodule Gelfx.LogEntry do
     timestamp_to_unix({date, {hour, minute, second}}) + millisecond / 1000
   end
 
-  def timestamp_to_unix({date, {hour, minute, second}}) do
-    :calendar.datetime_to_gregorian_seconds({date, {hour, minute, second}}) - @unix_epoch
+  def timestamp_to_unix({_d, {_h, _m, _s}} = datetime) do
+    datetime
+    |> :calendar.local_time_to_universal_time()
+    |> :calendar.datetime_to_gregorian_seconds()
+    |> (fn timestamp -> timestamp - @unix_epoch end).()
   end
 end

@@ -23,4 +23,5 @@ erl_crash.dump
 gelfx-*.tar
 
 .elixir_ls
+.iex.exs
 
