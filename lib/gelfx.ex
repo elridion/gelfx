@@ -25,16 +25,17 @@ defmodule Gelfx do
 
   ## Options
   Besides `:level`, `:format` and `:metadata`, which are advised by [Logger](https://hexdocs.pm/logger/Logger.html#module-custom-backends) Gelfx supports:
-  - `:protocol` - either `:tcp` or `:udp`, `:http` is not jet supported, defaults to :udp
-  - `:format` - defaults to `"$message"`
   - `:host` - hostname of the server running the GELF endpoint
+  - `:port` - port on which the graylog server runs the respective GELF input
+  - `:protocol` - either `:tcp` or `:udp`, `:http` is not jet supported, defaults to `:udp`
+  - `:connection_timeout` - sets the timeout in ms after which the `:tcp` connect timeouts, defaults to 5s.
+  - `:compression` - either `:gzip` or `:zlib` can be set and will be used for package compression when UDP is used as protocol
+  - `:format` - defaults to `"$message"`
   - `:hostname` - used as source field in the GELF message, defaults to the hostname returned by `:inet.gethostname()`
   - `:json_library` - json library to use, has to implement a `encode/1` which returns a `{:ok, json}` tuple in case of success
-  - `:port` - port on which the graylog server runs the respective GELF input
-  - `:compression` - either `:gzip` or `:zlib` can be set and will be used for package compression when UDP is used as protocol
 
   ## Message Format
-  The GELF message format version implemented by this library is `1.1` [docs]().
+  The GELF message format version implemented by this library is `1.1` [docs](http://docs.graylog.org/en/2.5/pages/gelf.html).
 
   Messages can include a `short_message` and a `full_message`, Gelfx will use the first line of each log message for the `short_message` and will place the whole message in the `full_message` field.
 
@@ -74,12 +75,15 @@ defmodule Gelfx do
 
   @behaviour :gen_event
 
+  require Logger
+
   alias Logger.Formatter
   alias Gelfx.{LogEntry}
 
   defstruct [
     :compression,
     :conn,
+    :connection_timeout,
     :format,
     :host,
     :hostname,
@@ -96,6 +100,7 @@ defmodule Gelfx do
     json_library: Jason,
     metadata: [],
     port: 12201,
+    connection_timeout: 5_000,
     protocol: :udp
   ]
 
@@ -120,6 +125,7 @@ defmodule Gelfx do
     state = %__MODULE__{
       state
       | compression: Keyword.get(config, :compression),
+        connection_timeout: Keyword.get(config, :connection_timeout),
         format: Formatter.compile(Keyword.get(config, :format)),
         host: Keyword.get(config, :host),
         hostname: Keyword.get(config, :hostname),
@@ -131,7 +137,8 @@ defmodule Gelfx do
     }
 
     case spawn_conn(state) do
-      {:error, _} ->
+      {:error, reason} ->
+        Logger.error("Gelf backend connection failed: #{reason}")
         {:error, :ignore}
 
       conn ->
@@ -262,24 +269,24 @@ defmodule Gelfx do
   def spawn_conn(%__MODULE__{
         protocol: protocol,
         host: host,
-        port: port
+        port: port,
+        connection_timeout: timeout
       }) do
-    spawn_conn(protocol, host, port)
+    spawn_conn(protocol, host, port, timeout)
   end
 
-  def spawn_conn(protocol, host, port) when is_binary(host) do
-    spawn_conn(protocol, String.to_charlist(host), port)
+  def spawn_conn(protocol, host, port, timeout) when is_binary(host) do
+    spawn_conn(protocol, String.to_charlist(host), port, timeout)
   end
 
-  def spawn_conn(:tcp, host, port) do
-    :gen_tcp.connect(host, port, [:binary, active: true])
-    |> case do
+  def spawn_conn(:tcp, host, port, timeout) do
+    case :gen_tcp.connect(host, port, [:binary, active: true], timeout) do
       {:ok, socket} -> {:tcp, socket}
       error -> error
     end
   end
 
-  def spawn_conn(:udp, host, port) do
+  def spawn_conn(:udp, host, port, _timeout) do
     case :gen_udp.open(0, [:binary, active: true]) do
       {:ok, socket} ->
         buffer =
