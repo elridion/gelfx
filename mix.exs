@@ -1,7 +1,7 @@
 defmodule Gelfx.MixProject do
   use Mix.Project
 
-  @version "0.1.4"
+  @version "0.2.0"
 
   def project do
     [
@@ -12,9 +12,16 @@ defmodule Gelfx.MixProject do
       description: description(),
       package: package(),
       deps: deps(),
-      docs: docs()
+      docs: docs(),
+      elixirc_paths: elixirc_paths(Mix.env())
     ]
   end
+
+  def elixirc_paths(env) when env in [:dev, :test] do
+    ["test/test_helper" | elixirc_paths(nil)]
+  end
+
+  def elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
@@ -26,7 +33,7 @@ defmodule Gelfx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.1", only: :dev},
+      {:jason, "~> 1.1", only: [:dev, :test]},
       {:ex_doc, "~> 0.19", only: :dev}
     ]
   end

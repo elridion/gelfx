@@ -23,8 +23,8 @@ defmodule Gelfx.LogEntry do
   def from_event(
         {level, _group_leader, {Logger, message, timestamp, metadata}},
         format,
-        additional_metadata \\ [],
-        hostname \\ "unknown"
+        additional_metadata,
+        hostname
       )
       when is_list(format) do
     metadata = Keyword.merge(metadata, additional_metadata)
