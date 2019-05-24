@@ -3,11 +3,11 @@ defmodule Gelfx do
   A logger backend for Elixir applications using `Logger` and Graylog based on GELF (Graylog extended logging format).
 
   ## Usage
-  Add Gelfx to your application by adding `{:gelfx, "~> 0.1.0"}` to your list of dependencies in `mix.exs`:
+  Add Gelfx to your application by adding `{:gelfx, "~> 0.2.0"}` to your list of dependencies in `mix.exs`:
   ```elixir
   def deps do
     [
-      {:gelfx, "~> 0.1.0"}
+      {:gelfx, "~> 0.2.0"}
     ]
   end
   ```
@@ -35,13 +35,13 @@ defmodule Gelfx do
   - `:json_library` - json library to use, has to implement a `encode/1` which returns a `{:ok, json}` tuple in case of success
 
   ## Message Format
-  The GELF message format version implemented by this library is `1.1` [docs](http://docs.graylog.org/en/2.5/pages/gelf.html).
+  The GELF message format version implemented by this library is 1.1, the docs can be found [here](http://docs.graylog.org/en/3.0/pages/gelf.html).
 
   Messages can include a `short_message` and a `full_message`, Gelfx will use the first line of each log message for the `short_message` and will place the whole message in the `full_message` field.
 
-  Metadata will be included in the message using the `additional field` syntax.
-  The Keys of the metadata entries have to match `^\\_?[\\w\\.\\-]*$` with keys missing an leading underscore are automatically prepended with one.
-  Key collisions are __NOT__ prevented by Gelfx, additionally the keys `id` and `_id` are automatically omitted due to the GELF spec.
+  Metadata will be included in the message using the _additional field_ syntax.
+  The Keys of the metadata entries have to match `^\\_?[\\w\\.\\-]*$`, keys missing an leading underscore are automatically prepended with one.
+  Key collisions are __NOT__ prevented by Gelfx, additionally the keys `id` and `_id` are automatically omitted due to the GELF specification.
 
   ## Levels
   Graylog relies on the syslog definitions for logging levels.
