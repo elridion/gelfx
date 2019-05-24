@@ -1,4 +1,5 @@
 defmodule TestHelper.TcpServer do
+  @moduledoc false
   use GenServer
 
   defstruct [
