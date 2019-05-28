@@ -95,16 +95,17 @@ defmodule Gelfx do
     :level,
     :metadata,
     :port,
-    :protocol
+    :protocol,
+    :utc_log
   ]
 
   @default_conf [
+    connection_timeout: 5_000,
     format: "$message",
     host: "localhost",
     json_library: Jason,
     metadata: [],
     port: 12201,
-    connection_timeout: 5_000,
     protocol: :udp
   ]
 
@@ -192,6 +193,7 @@ defmodule Gelfx do
 
     @default_conf
     |> Keyword.put_new(:hostname, to_string(hostname))
+    |> Keyword.put(:utc_log, Application.get_env(:logger, :utc_log, false))
     |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
     |> Keyword.merge(opts)
   end

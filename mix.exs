@@ -46,7 +46,6 @@ defmodule Gelfx.MixProject do
     [
       main: "Gelfx",
       canonical: "http://hexdocs.pm/gelfx",
-      # logo: "guides/images/e.png",
       source_url: "https://github.com/elridion/gelfx"
     ]
   end

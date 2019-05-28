@@ -16,15 +16,21 @@ defmodule Gelfx.LogEntry do
     version: @gelf_version
   ]
 
-  def from_event(event, %Gelfx{format: format, metadata: metadata, hostname: hostname}) do
-    from_event(event, format, metadata, hostname)
+  def from_event(event, %Gelfx{
+        format: format,
+        metadata: metadata,
+        hostname: hostname,
+        utc_log: utc?
+      }) do
+    from_event(event, format, metadata, hostname, utc?)
   end
 
   def from_event(
         {level, _group_leader, {Logger, message, timestamp, metadata}},
         format,
         additional_metadata,
-        hostname
+        hostname,
+        utc?
       )
       when is_list(format) do
     metadata = Keyword.merge(metadata, additional_metadata)
@@ -38,12 +44,20 @@ defmodule Gelfx.LogEntry do
       String.split(full_message, "\n")
       |> List.first()
 
+    timestamp =
+      if utc? do
+        timestamp
+      else
+        timestamp_to_utc(timestamp)
+      end
+      |> timestamp_to_unix()
+
     %__MODULE__{
       version: @gelf_version,
       host: hostname,
       short_message: short_message,
       full_message: full_message,
-      timestamp: timestamp_to_unix(timestamp),
+      timestamp: timestamp,
       level: log_level(level)
     }
     |> Map.from_struct()
@@ -136,8 +150,18 @@ defmodule Gelfx.LogEntry do
 
   def timestamp_to_unix({_d, {_h, _m, _s}} = datetime) do
     datetime
-    |> :calendar.local_time_to_universal_time()
     |> :calendar.datetime_to_gregorian_seconds()
     |> (fn timestamp -> timestamp - @unix_epoch end).()
+  end
+
+  def timestamp_to_utc({date, {hour, minute, second, millisecond}}) do
+    {utc_date, {utc_hour, utc_minute, utc_second}} =
+      timestamp_to_utc({date, {hour, minute, second}})
+
+    {utc_date, {utc_hour, utc_minute, utc_second, millisecond}}
+  end
+
+  def timestamp_to_utc({_d, {_h, _m, _s}} = datetime) do
+    :calendar.local_time_to_universal_time(datetime)
   end
 end
