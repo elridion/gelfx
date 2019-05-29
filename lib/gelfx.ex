@@ -3,11 +3,12 @@ defmodule Gelfx do
   A logger backend for Elixir applications using `Logger` and Graylog based on GELF (Graylog extended logging format).
 
   ## Usage
-  Add Gelfx to your application by adding `{:gelfx, "~> 0.2.0"}` to your list of dependencies in `mix.exs`:
+  Add Gelfx to your application by adding `{:gelfx, "~> #{Mix.Project.config()[:version]}"}` to your list of dependencies in `mix.exs`:
   ```elixir
   def deps do
     [
-      {:gelfx, "~> 0.2.0"}
+      # ...
+      {:gelfx, "~> #{Mix.Project.config()[:version]}"}
     ]
   end
   ```
