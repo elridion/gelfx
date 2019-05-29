@@ -7,6 +7,8 @@ defmodule GelfxTest do
   @logging_wait 250
 
   setup do
+    Logger.configure(utc_log: false)
+
     {:ok, server} = start_tcp()
     Logger.add_backend(Gelfx)
 
@@ -18,27 +20,30 @@ defmodule GelfxTest do
 
   test "logging" do
     info("hello world")
-
-    Process.sleep(@logging_wait)
     assert %{"full_message" => "hello world"} = TcpServer.pop()
   end
 
   test "connection loss" do
     info("hello")
+    Process.sleep(@logging_wait)
+
     stop_tcp()
 
-    assert :ets.info(Gelfx, :size) == 0
-    # Process.sleep(100)
+    assert ets_size() == 0
     info("send_offline0")
+    assert ets_size() == 1
     info("send_offline1")
+    assert ets_size() == 2
     info("send_offline2")
+    assert ets_size() == 3
     info("send_offline3")
-    assert :ets.info(Gelfx, :size) == 4
+    Process.sleep(@logging_wait)
+    assert ets_size() == 4
     start_tcp()
     Process.sleep(6000)
-    assert :ets.info(Gelfx, :size) == 0
+    assert ets_size() == 0
     info("send_online")
-    assert :ets.info(Gelfx, :size) == 0
+    assert ets_size() == 0
 
     tcp_messages =
       TcpServer.all()
@@ -70,6 +75,23 @@ defmodule GelfxTest do
     assert [%{"full_message" => "error"}] = TcpServer.all()
   end
 
+  test "logging time" do
+    now = :os.system_time(:seconds)
+    info("log in local")
+    assert %{"timestamp" => timestamp} = TcpServer.pop()
+    assert_in_delta(timestamp, now, 2)
+
+    Logger.configure(utc_log: true)
+    Logger.configure_backend(Gelfx, utc_log: true)
+    TcpServer.listen()
+
+    now = :os.system_time(:seconds)
+
+    info("log in utc")
+    assert %{"timestamp" => timestamp} = TcpServer.pop()
+    assert_in_delta(timestamp, now, 2)
+  end
+
   defp start_tcp do
     {:ok, _} = GenServer.start(TcpServer, [], name: TcpServer)
   end
@@ -81,20 +103,28 @@ defmodule GelfxTest do
   defp debug(msg) do
     Logger.debug(msg)
     Logger.flush()
+    Process.sleep(@logging_wait)
   end
 
   defp info(msg) do
     Logger.info(msg)
     Logger.flush()
+    Process.sleep(@logging_wait)
   end
 
   defp warn(msg) do
     Logger.warn(msg)
     Logger.flush()
+    Process.sleep(@logging_wait)
   end
 
   defp error(msg) do
     Logger.error(msg)
     Logger.flush()
+    Process.sleep(@logging_wait)
+  end
+
+  defp ets_size do
+    :ets.info(Gelfx, :size)
   end
 end

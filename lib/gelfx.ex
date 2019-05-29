@@ -33,6 +33,7 @@ defmodule Gelfx do
   - `:format` - defaults to `"$message"`
   - `:hostname` - used as source field in the GELF message, defaults to the hostname returned by `:inet.gethostname()`
   - `:json_library` - json library to use, has to implement a `encode/1` which returns a `{:ok, json}` tuple in case of success
+  - `:utc_log` - this option should not be configured directly. But rather by setting the `:utc_log` option in the `Logger` config. Should the Logger config change after the Gelfx backend is initialized the option has to be reconfigured.
 
   ## Message Format
   The GELF message format version implemented by this library is 1.1, the docs can be found [here](http://docs.graylog.org/en/3.0/pages/gelf.html).
@@ -95,16 +96,17 @@ defmodule Gelfx do
     :level,
     :metadata,
     :port,
-    :protocol
+    :protocol,
+    :utc_log
   ]
 
   @default_conf [
+    connection_timeout: 5_000,
     format: "$message",
     host: "localhost",
     json_library: Jason,
     metadata: [],
     port: 12201,
-    connection_timeout: 5_000,
     protocol: :udp
   ]
 
@@ -170,11 +172,19 @@ defmodule Gelfx do
         level: Keyword.get(config, :level),
         metadata: Keyword.get(config, :metadata),
         port: Keyword.get(config, :port),
-        protocol: Keyword.get(config, :protocol)
+        protocol: Keyword.get(config, :protocol),
+        utc_log: Keyword.get(config, :utc_log)
     }
 
-    if :ets.info(__MODULE__) == :undefined do
-      :ets.new(__MODULE__, [:public, :duplicate_bag, :named_table])
+    case :ets.info(__MODULE__, :size) do
+      :undefined ->
+        :ets.new(__MODULE__, [:public, :duplicate_bag, :named_table])
+
+      0 ->
+        :ok
+
+      _ ->
+        send(self(), {__MODULE__, :flush_buffer})
     end
 
     case spawn_conn(state) do
@@ -192,6 +202,7 @@ defmodule Gelfx do
 
     @default_conf
     |> Keyword.put_new(:hostname, to_string(hostname))
+    |> Keyword.put(:utc_log, Application.get_env(:logger, :utc_log, false))
     |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
     |> Keyword.merge(opts)
   end
@@ -267,14 +278,30 @@ defmodule Gelfx do
   end
 
   @impl true
-  def handle_info({:tcp_error, _socket, _reason}, state) do
-    Logger.warn("TCP connection error")
-    handle_info(:retry, close_conn(state))
+  def handle_info({__MODULE__, msg}, state) do
+    handle_info(msg, state)
   end
 
-  def handle_info({:tcp_closed, _socket}, state) do
-    Logger.warn("TCP connection closed")
-    handle_info(:retry, close_conn(state))
+  def handle_info({:tcp_error, socket, reason}, state) do
+    case state do
+      %{conn: {:tcp, ^socket}} ->
+        Logger.warn(["TCP connection error ", inspect(reason)])
+        handle_info(:retry, close_conn(state))
+
+      _ ->
+        {:ok, state}
+    end
+  end
+
+  def handle_info({:tcp_closed, socket}, state) do
+    case state do
+      %{conn: {:tcp, ^socket}} ->
+        Logger.warn("TCP connection closed")
+        handle_info(:retry, close_conn(state))
+
+      _ ->
+        {:ok, state}
+    end
   end
 
   def handle_info(:flush_buffer, %{conn: {prot, _}} = state)
@@ -302,10 +329,6 @@ defmodule Gelfx do
     end
   end
 
-  def handle_info(:flush_buffer, state) do
-    {:ok, state}
-  end
-
   def handle_info(:retry, state) do
     if state.conn in [:error, nil], do: Logger.debug("Connection error starting retries")
 
@@ -329,6 +352,11 @@ defmodule Gelfx do
   end
 
   def handle_info(_msg, state) do
+    {:ok, state}
+  end
+
+  @impl true
+  def code_change(_old_vsn, state, _extra) do
     {:ok, state}
   end
 

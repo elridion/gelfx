@@ -1,7 +1,7 @@
 defmodule Gelfx.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.2.1"
 
   def project do
     [
@@ -46,7 +46,6 @@ defmodule Gelfx.MixProject do
     [
       main: "Gelfx",
       canonical: "http://hexdocs.pm/gelfx",
-      # logo: "guides/images/e.png",
       source_url: "https://github.com/elridion/gelfx"
     ]
   end
