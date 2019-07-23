@@ -114,7 +114,7 @@ defmodule Gelfx do
   # 2 magic bytes + 8 Msg ID + 1 seq number + 1 seq count
   @chunk_header_bytes 12
 
-  def __after_compile__(env, _bytecode) do
+  def __after_compile__(%{line: line, file: file}, _bytecode) do
     json_library =
       @default_conf
       |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
@@ -122,18 +122,24 @@ defmodule Gelfx do
 
     cond do
       not Code.ensure_compiled?(json_library) ->
-        :elixir_errors.warn(env.line, env.file, [
-          "JSON library ",
-          inspect(json_library),
-          " is not available"
-        ])
+        IO.warn(
+          [
+            "JSON library ",
+            inspect(json_library),
+            " is not available"
+          ],
+          [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+        )
 
       not ({:encode, 1} in json_library.__info__(:functions)) ->
-        :elixir_errors.warn(env.line, env.file, [
-          "JSON library ",
-          inspect(json_library),
-          " does not implement a public function encode/1 "
-        ])
+        IO.warn(
+          [
+            "JSON library ",
+            inspect(json_library),
+            " does not implement a public function encode/1 "
+          ],
+          [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+        )
 
       true ->
         case apply(json_library, :encode, [%{}]) do
@@ -141,11 +147,14 @@ defmodule Gelfx do
             :ok
 
           _ ->
-            :elixir_errors.warn(env.line, env.file, [
-              "JSON library ",
-              inspect(json_library),
-              " function encode/1 does not return an {:ok, json} tuple"
-            ])
+            IO.warn(
+              [
+                "JSON library ",
+                inspect(json_library),
+                " function encode/1 does not return an {:ok, json} tuple"
+              ],
+              [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+            )
         end
     end
   end
