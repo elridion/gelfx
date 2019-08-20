@@ -24,4 +24,5 @@ gelfx-*.tar
 
 .elixir_ls
 .iex.exs
+.vscode
 

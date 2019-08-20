@@ -7,3 +7,5 @@ config :logger,
   compile_time_purge_matching: [
     [module: Gelfx]
   ]
+
+config :logger, Gelfx, port: 22_000

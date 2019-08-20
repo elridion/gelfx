@@ -49,7 +49,7 @@ defmodule Gelfx do
   Graylog relies on the syslog definitions for logging levels.
   Gelfx maps the Elixir levels as follows:
 
-  | Elixir | Sysylog | GELF - Selector |
+  | Elixir | Syslog | GELF - Selector |
   |-|-|-|
   | | Emergency | 0 |
   | | Alert | 1 |
@@ -78,8 +78,6 @@ defmodule Gelfx do
   @behaviour :gen_event
 
   @after_compile __MODULE__
-
-  @compile {:inline, meet_level?: 2}
 
   require Logger
 
@@ -116,7 +114,7 @@ defmodule Gelfx do
 
   def __after_compile__(%{line: line, file: file}, _bytecode) do
     json_library =
-      @default_conf
+      default_conf()
       |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
       |> Keyword.get(:json_library)
 
@@ -161,16 +159,15 @@ defmodule Gelfx do
 
   @impl true
   def init(__MODULE__) do
-    init({__MODULE__, []})
+    config = Keyword.merge(default_conf(), Application.get_env(:logger, __MODULE__, []))
+    init({__MODULE__, config})
   end
 
-  def init({__MODULE__, opts}) do
-    opts
-    |> config()
-    |> init(%__MODULE__{})
+  def init({__MODULE__, options}) do
+    {:ok, config(options, %__MODULE__{})}
   end
 
-  def init(config, %__MODULE__{} = state) do
+  defp init(config, %__MODULE__{} = state) do
     state = %__MODULE__{
       state
       | compression: Keyword.get(config, :compression),
@@ -200,32 +197,24 @@ defmodule Gelfx do
     case spawn_conn(state) do
       {:error, reason} ->
         Logger.error(["Cloud not establish connection on init ", inspect(reason)])
-        {:ok, %{state | conn: :error}}
+        %{state | conn: :error}
 
       conn ->
-        {:ok, %{state | conn: conn}}
+        %{state | conn: conn}
     end
   end
 
-  defp config(opts) do
-    {:ok, hostname} = :inet.gethostname()
+  defp config(options, state) do
+    config = Keyword.merge(Application.get_env(:logger, __MODULE__, []), options)
 
-    @default_conf
-    |> Keyword.put_new(:hostname, to_string(hostname))
-    |> Keyword.put(:utc_log, Application.get_env(:logger, :utc_log, false))
-    |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
-    |> Keyword.merge(opts)
+    Application.put_env(:logger, __MODULE__, config)
+
+    init(config, state)
   end
 
   @impl true
   def handle_call({:configure, options}, state) do
-    options
-    |> config()
-    |> init(state)
-    |> case do
-      {:ok, state} ->
-        {:ok, :ok, state}
-    end
+    {:ok, :ok, config(options, state)}
   end
 
   def handle_call(_, state) do
@@ -404,6 +393,7 @@ defmodule Gelfx do
     apply(json, :encode, [log_entry])
   end
 
+  @compile {:inline, meet_level?: 2}
   @doc false
   def meet_level?(_lvl, nil), do: true
 
@@ -493,23 +483,29 @@ defmodule Gelfx do
     :gen_tcp.send(socket, payload <> <<0>>)
   end
 
-  def submit(payload, {:udp, {socket, host, port, chunk_threshold}}, comp)
-      when byte_size(payload) <= chunk_threshold do
-    payload =
-      case comp do
-        :gzip -> :zlib.compress(payload)
-        :zlib -> :zlib.gzip(payload)
-        _ -> payload
-      end
+  def submit(payload, {:udp, _} = conn, comp)
+      when not is_nil(comp) do
+    case comp do
+      :gzip ->
+        :zlib.gzip(payload)
 
+      :zlib ->
+        :zlib.compress(payload)
+
+      _ ->
+        payload
+    end
+    |> submit(conn, nil)
+  end
+
+  def submit(payload, {:udp, {socket, host, port, chunk_threshold}}, _comp)
+      when byte_size(payload) <= chunk_threshold do
     :gen_udp.send(socket, host, port, payload)
   end
 
   def submit(payload, {:udp, {_socket, _host, _port, chunk_threshold}} = conn, comp) do
     chunks = chunk(payload, chunk_threshold - @chunk_header_bytes)
-
     chunk_count = length(chunks)
-
     msg_id = message_id()
 
     for {seq_nr, chunck} <- chunks do
@@ -565,6 +561,19 @@ defmodule Gelfx do
   end
 
   defp discard? do
-    :ets.info(__MODULE__, :size) >= Application.get_env(:logger, :discard_threshold) * 10
+    :ets.info(__MODULE__, :size) >= Application.get_env(:logger, :discard_threshold, 500) * 10
+  end
+
+  defp hostname do
+    case :inet.gethostname() do
+      {:ok, hostname} -> to_string(hostname)
+      _ -> "unknown_host"
+    end
+  end
+
+  defp default_conf do
+    @default_conf
+    |> Keyword.put(:hostname, hostname())
+    |> Keyword.put(:utc_log, Application.get_env(:logger, :utc_log, false))
   end
 end

@@ -10,19 +10,19 @@ defmodule TestHelper.TcpServer do
   ]
 
   def pop(server \\ __MODULE__) when is_pid(server) or is_atom(server) do
-    GenServer.call(server, :pop)
+    GenServer.call(server, :pop, 1000)
   end
 
   def all(server \\ __MODULE__) when is_pid(server) or is_atom(server) do
-    GenServer.call(server, :all)
+    GenServer.call(server, :all, 1000)
   end
 
   def listen(server \\ __MODULE__) when is_pid(server) or is_atom(server) do
-    GenServer.call(server, :listen)
+    GenServer.call(server, :listen, 1000)
   end
 
   def init(args) do
-    case :gen_tcp.listen(Keyword.get(args, :port, 12_201), [
+    case :gen_tcp.listen(Keyword.get(args, :port, 22_000), [
            :binary,
            active: true,
            reuseaddr: true
@@ -33,12 +33,35 @@ defmodule TestHelper.TcpServer do
   end
 
   def handle_continue(:accept, %{listener: listener} = state) do
-    case :gen_tcp.accept(listener) do
-      {:ok, socket} ->
-        {:noreply, %{state | socket: socket}}
+    server = self()
 
-      error ->
-        {:stop, error, state}
+    spawn(fn ->
+      case :gen_tcp.accept(listener) do
+        {:ok, socket} ->
+          Port.connect(socket, server)
+          send(server, {:socket, socket})
+
+        error ->
+          send(server, {:socket, error})
+      end
+
+      receive do
+        {:tcp, _, _} = msg ->
+          send(server, msg)
+      after
+        10 ->
+          :ok
+      end
+    end)
+
+    {:noreply, state}
+  end
+
+  def handle_info({:socket, socket}, state) do
+    if is_port(socket) do
+      {:noreply, %{state | socket: socket}}
+    else
+      {:noreply, state, {:continue, :accept}}
     end
   end
 
