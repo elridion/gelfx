@@ -28,13 +28,18 @@ defmodule Gelfx do
   Besides `:level`, `:format` and `:metadata`, which are advised by [Logger](https://hexdocs.pm/logger/Logger.html#module-custom-backends) Gelfx supports:
   - `:host` - hostname of the server running the GELF endpoint, defaults to `localhost`
   - `:port` - port on which the graylog server runs the respective GELF input, defaults to `12201`
-  - `:protocol` - either `:tcp` or `:udp`, `:http` is not jet supported, defaults to `:udp`
+  - `:protocol` - either `:tcp`, `:udp`, or `:http`.  Defaults to `:udp`.
   - `:connection_timeout` - sets the timeout in ms after which the `:tcp` connect timeouts, defaults to 5s.
-  - `:compression` - either `:gzip` or `:zlib` can be set and will be used for package compression when UDP is used as protocol
+  - `:compression` - either `:gzip` or `:zlib` can be set and will be used for package compression when UDP or HTTP (only gzip) is used as protocol
   - `:format` - defaults to `"$message"`
   - `:hostname` - used as source field in the GELF message, defaults to the hostname returned by `:inet.gethostname()`
   - `:json_library` - json library to use, has to implement a `encode/1` which returns a `{:ok, json}` tuple in case of success
   - `:utc_log` - this option should not be configured directly. But rather by setting the `:utc_log` option in the `Logger` config. Should the Logger config change after the Gelfx backend is initialized the option has to be reconfigured.
+
+  ### HTTP
+  When using the HTTP protocol the url is build using the scheme defined in the graylog [documentation](https://docs.graylog.org/en/3.1/pages/sending_data.html#gelf-via-http).
+
+  Setting the host to `localhost` and port to `12201` sends log entries to `http://localhost:12201/gelf`.
 
   ## Message Format
   The GELF message format version implemented by this library is 1.1, the docs can be found [here](http://docs.graylog.org/en/3.0/pages/gelf.html).
@@ -448,6 +453,12 @@ defmodule Gelfx do
     end
   end
 
+  def spawn_conn(:http, host, port, _timeout) do
+    :inets.start()
+
+    {:http, List.flatten(['http://', host, ?:, Integer.to_charlist(port) | '/gelf'])}
+  end
+
   @doc false
   def close_conn(%__MODULE__{conn: connection} = state) do
     case close_conn(connection) do
@@ -462,6 +473,10 @@ defmodule Gelfx do
 
   def close_conn({:udp, {socket, _host, _post, _buffer}}) do
     :gen_udp.close(socket)
+  end
+
+  def close_conn({:http, _}) do
+    :ok
   end
 
   def close_conn(_) do
@@ -514,6 +529,19 @@ defmodule Gelfx do
     end
   end
 
+  def submit(payload, {:http, url}, :gzip) do
+    :httpc.request(
+      :post,
+      {url, [{'Content-Encoding', 'gzip'}], 'application/json', :zlib.gzip(payload)},
+      [],
+      []
+    )
+  end
+
+  def submit(payload, {:http, url}, _comp) do
+    :httpc.request(:post, {url, [], 'application/json', payload}, [], [])
+  end
+
   defp flush({:tcp, socket}) do
     flush(socket)
   end
@@ -534,6 +562,10 @@ defmodule Gelfx do
       _ ->
         :error
     end
+  end
+
+  defp flush({:http, _}) do
+    :ok
   end
 
   defp flush(_) do
@@ -565,10 +597,8 @@ defmodule Gelfx do
   end
 
   defp hostname do
-    case :inet.gethostname() do
-      {:ok, hostname} -> to_string(hostname)
-      _ -> "unknown_host"
-    end
+    {:ok, hostname} = :inet.gethostname()
+    to_string(hostname)
   end
 
   defp default_conf do
