@@ -40,9 +40,7 @@ defmodule Gelfx.LogEntry do
       |> Formatter.format(level, message, timestamp, metadata)
       |> IO.chardata_to_string()
 
-    short_message =
-      String.split(full_message, "\n")
-      |> List.first()
+    short_message = short_message(full_message)
 
     timestamp =
       if utc? do
@@ -149,9 +147,7 @@ defmodule Gelfx.LogEntry do
   end
 
   def timestamp_to_unix({_d, {_h, _m, _s}} = datetime) do
-    datetime
-    |> :calendar.datetime_to_gregorian_seconds()
-    |> (fn timestamp -> timestamp - @unix_epoch end).()
+    :calendar.datetime_to_gregorian_seconds(datetime) - @unix_epoch
   end
 
   def timestamp_to_utc({date, {hour, minute, second, millisecond}}) do
@@ -163,5 +159,28 @@ defmodule Gelfx.LogEntry do
 
   def timestamp_to_utc({_d, {_h, _m, _s}} = datetime) do
     :calendar.local_time_to_universal_time(datetime)
+  end
+
+  def short_message(data) do
+    short_message(data, data, 0)
+  end
+
+  def short_message(<<?\n, _rest::binary>>, original, length) do
+    binary_part(original, 0, length)
+  end
+
+  for {bound, length} <- [{0x7F, 1}, {0x7FF, 2}, {0xFFFF, 3}] do
+    def short_message(<<char::utf8, rest::binary>>, original, length)
+        when char <= unquote(bound) do
+      short_message(rest, original, length + unquote(length))
+    end
+  end
+
+  def short_message(<<_char::utf8, rest::binary>>, original, length) do
+    short_message(rest, original, length + 4)
+  end
+
+  def short_message(<<>>, original, _length) do
+    original
   end
 end
