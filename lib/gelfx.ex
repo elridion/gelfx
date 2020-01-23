@@ -123,6 +123,8 @@ defmodule Gelfx do
       |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
       |> Keyword.get(:json_library)
 
+    stacktrace = [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+
     cond do
       not Code.ensure_compiled?(json_library) ->
         IO.warn(
@@ -131,7 +133,7 @@ defmodule Gelfx do
             inspect(json_library),
             " is not available"
           ],
-          [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+          stacktrace
         )
 
       not ({:encode, 1} in json_library.__info__(:functions)) ->
@@ -141,7 +143,7 @@ defmodule Gelfx do
             inspect(json_library),
             " does not implement a public function encode/1 "
           ],
-          [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+          stacktrace
         )
 
       true ->
@@ -156,7 +158,7 @@ defmodule Gelfx do
                 inspect(json_library),
                 " function encode/1 does not return an {:ok, json} tuple"
               ],
-              [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
+              stacktrace
             )
         end
     end
@@ -494,28 +496,34 @@ defmodule Gelfx do
     submit(payload, conn, comp)
   end
 
+  # TCP
   def submit(payload, {:tcp, socket}, _compression) do
-    :gen_tcp.send(socket, payload <> <<0>>)
+    case :gen_tcp.send(socket, payload <> <<0>>) do
+      :ok -> :ok
+      {:error, :closed} -> :retry
+      _ -> :error
+    end
   end
 
-  def submit(payload, {:udp, _} = conn, comp)
-      when not is_nil(comp) do
-    case comp do
-      :gzip ->
-        :zlib.gzip(payload)
+  # UDP
+  def submit(payload, {:udp, _} = conn, :gzip) do
+    payload
+    |> :zlib.gzip()
+    |> submit(conn, nil)
+  end
 
-      :zlib ->
-        :zlib.compress(payload)
-
-      _ ->
-        payload
-    end
+  def submit(payload, {:udp, _} = conn, :zlib) do
+    payload
+    |> :zlib.compress()
     |> submit(conn, nil)
   end
 
   def submit(payload, {:udp, {socket, host, port, chunk_threshold}}, _comp)
       when byte_size(payload) <= chunk_threshold do
-    :gen_udp.send(socket, host, port, payload)
+    case :gen_udp.send(socket, host, port, payload) do
+      :ok -> :ok
+      _ -> :error
+    end
   end
 
   def submit(payload, {:udp, {_socket, _host, _port, chunk_threshold}} = conn, comp) do
@@ -529,6 +537,7 @@ defmodule Gelfx do
     end
   end
 
+  # HTTP
   def submit(payload, {:http, url}, :gzip) do
     :httpc.request(
       :post,
@@ -536,10 +545,14 @@ defmodule Gelfx do
       [],
       []
     )
+
+    :ok
   end
 
   def submit(payload, {:http, url}, _comp) do
     :httpc.request(:post, {url, [], 'application/json', payload}, [], [])
+
+    :ok
   end
 
   defp flush({:tcp, socket}) do
