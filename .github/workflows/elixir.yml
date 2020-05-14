@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, development ]
+    # paths:
+    #     - 'test/*'
+    #     - 'lib/*'
+    #     - '.github/*'
+  pull_request:
+    branches: [ master ]
+env:
+  MIX_ENV: test
+
+jobs:
+  build_latest:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup elixir
+      uses: actions/setup-elixir@v1
+      with:
+        elixir-version: 1.10.2 # Define the elixir version [required]
+        otp-version: 22.2 # Define the OTP version [required]
+    - name: Install Dependencies
+      run: mix deps.get
+    - name: Run Tests
+      run: mix test
+  build_1_6_6:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup elixir
+      uses: actions/setup-elixir@v1
+      with:
+        elixir-version: 1.6.6 # Define the elixir version [required]
+        otp-version: 21.0 # Define the OTP version [required]
+    - name: Install Dependencies
+      run: mix deps.get
+    - name: Run Tests
+      run: mix test
