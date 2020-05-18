@@ -6,16 +6,6 @@ defmodule Gelfx.LogEntry do
 
   @unix_epoch 62_167_219_200
 
-  @enforce_keys [:version, :host, :short_message]
-  defstruct [
-    :host,
-    :short_message,
-    :full_message,
-    :timestamp,
-    :level,
-    version: @gelf_version
-  ]
-
   def from_event(event, %Gelfx{
         format: format,
         metadata: metadata,
@@ -50,7 +40,7 @@ defmodule Gelfx.LogEntry do
       end
       |> timestamp_to_unix()
 
-    %__MODULE__{
+    %{
       version: @gelf_version,
       host: hostname,
       short_message: short_message,
@@ -58,7 +48,6 @@ defmodule Gelfx.LogEntry do
       timestamp: timestamp,
       level: log_level(level)
     }
-    |> Map.from_struct()
     |> add_metadata(metadata)
   end
 

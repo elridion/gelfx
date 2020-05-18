@@ -390,12 +390,6 @@ defmodule Gelfx do
   @doc """
   Encodes the given `LogEntry` using the configured json library
   """
-  def encode(%LogEntry{} = log_entry, %__MODULE__{} = state) do
-    log_entry
-    |> Map.from_struct()
-    |> encode(state)
-  end
-
   def encode(log_entry, %__MODULE__{json_library: json}) when is_map(log_entry) do
     apply(json, :encode, [log_entry])
   end
