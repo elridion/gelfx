@@ -125,18 +125,35 @@ defmodule Gelfx do
 
     stacktrace = [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
 
-    cond do
-      not Code.ensure_compiled?(json_library) ->
+    with {:module, _module} <- Code.ensure_compiled(json_library),
+         true <- function_exported?(json_library, :encode, 1) do
+      case apply(json_library, :encode, [%{}]) do
+        {:ok, _} ->
+          :ok
+
+        _ ->
+          IO.warn(
+            [
+              "JSON library ",
+              inspect(json_library),
+              " function encode/1 does not return an {:ok, json} tuple"
+            ],
+            stacktrace
+          )
+      end
+    else
+      {:error, reason} ->
         IO.warn(
           [
             "JSON library ",
             inspect(json_library),
-            " is not available"
+            " is not available - ",
+            inspect(reason)
           ],
           stacktrace
         )
 
-      not ({:encode, 1} in json_library.__info__(:functions)) ->
+      false ->
         IO.warn(
           [
             "JSON library ",
@@ -145,22 +162,6 @@ defmodule Gelfx do
           ],
           stacktrace
         )
-
-      true ->
-        case apply(json_library, :encode, [%{}]) do
-          {:ok, _} ->
-            :ok
-
-          _ ->
-            IO.warn(
-              [
-                "JSON library ",
-                inspect(json_library),
-                " function encode/1 does not return an {:ok, json} tuple"
-              ],
-              stacktrace
-            )
-        end
     end
   end
 
