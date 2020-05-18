@@ -140,14 +140,14 @@ defmodule Gelfx.LogEntry do
   end
 
   def timestamp_to_utc({date, {hour, minute, second, millisecond}}) do
-    {utc_date, {utc_hour, utc_minute, utc_second}} =
+    [{utc_date, {utc_hour, utc_minute, utc_second}}] =
       timestamp_to_utc({date, {hour, minute, second}})
 
     {utc_date, {utc_hour, utc_minute, utc_second, millisecond}}
   end
 
   def timestamp_to_utc({_d, {_h, _m, _s}} = datetime) do
-    :calendar.local_time_to_universal_time(datetime)
+    :calendar.local_time_to_universal_time_dst(datetime)
   end
 
   def short_message(data) do
