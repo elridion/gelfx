@@ -1,5 +1,5 @@
 # Gelfx
-Elixir logger backend for Graylog based on GELF.
+Elixir logger backend for Graylog based on GELF.  
 Documentation is available on [hex.pm](https://hexdocs.pm/gelfx)
 
 <a href="https://frobese.io/" target="_blank"><img src="images/banner-frobeseio.png" alt="frobese.io logo" width="250"/></a>
@@ -35,7 +35,7 @@ Gelfx has full support of the Elixir Logger and Gelf/Graylog features.
 - __(TCP)__ When Gelfx is unable to transmit packets due to an connection loss packets are stored and resend once the connection is reestablished
 - Log-levels are correctly mapped onto the corresponding GELF selectors
 - Elixir `format` - Log messages are formatted using the [`Elixir.Logger.Formatter`](https://hexdocs.pm/logger/Logger.Formatter.html)
-- Logger`metadata` is correctly the GELF payload
+- Logger`metadata` is correctly stored in the GELF payload
 - Support for the `utc_log` Logger option, since GELF expects utc timestamps this has to be handled accordingly
 
 ## Copyright and License
