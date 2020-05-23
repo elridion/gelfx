@@ -6,6 +6,18 @@ defmodule Gelfx.LogEntry do
 
   @unix_epoch 62_167_219_200
 
+  @loglevel [
+    emergency: 0,
+    alert: 1,
+    critical: 2,
+    error: 3,
+    warn: 4,
+    warning: 4,
+    notice: 5,
+    info: 6,
+    debug: 7
+  ]
+
   def from_event(event, %Gelfx{
         format: format,
         metadata: metadata,
@@ -122,13 +134,14 @@ defmodule Gelfx.LogEntry do
     get_key("_" <> key)
   end
 
-  def log_level(level) do
-    case level do
-      :error -> 3
-      :warn -> 4
-      :info -> 6
-      :debug -> 7
+  for {ex_level, gelf_selector} <- @loglevel do
+    def log_level(unquote(ex_level)) do
+      unquote(gelf_selector)
     end
+  end
+
+  def log_level(_) do
+    0
   end
 
   def timestamp_to_unix({date, {hour, minute, second, millisecond}}) do

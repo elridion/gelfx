@@ -54,16 +54,17 @@ defmodule Gelfx do
   Graylog relies on the syslog definitions for logging levels.
   Gelfx maps the Elixir levels as follows:
 
-  | Elixir | Syslog | GELF - Selector |
-  |-|-|-|
-  | | Emergency | 0 |
-  | | Alert | 1 |
-  | | Critical | 2 |
-  | `:error` | Error | 3 |
-  | `:warn` | Warning | 4 |
-  | | Notice | 5 |
-  | `:info` | Informational | 6 |
-  | `:debug` | Debug | 7 |
+  | Elixir | Syslog | GELF - Selector | Note |
+  |-|-|-|-|
+  | `:emergency` | Emergency | 0 | |
+  | `:alert` | Alert | 1 | |
+  | `:critical` | Critical | 2 | |
+  | `:error` | Error | 3 | |
+  | `:warning` | Warning | 4 | |
+  | `:warn` | -- | -- | Same as `:warning` was soft-depracted in elixir 1.11 |
+  | `:notice` | Notice | 5 | |
+  | `:info` | Informational | 6 | |
+  | `:debug` | Debug | 7 | |
   """
 
   # Copyright 2019 Hans Bernhard Goedeke
