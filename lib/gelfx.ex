@@ -83,8 +83,6 @@ defmodule Gelfx do
 
   @behaviour :gen_event
 
-  @after_compile __MODULE__
-
   require Logger
 
   alias Logger.Formatter
@@ -118,54 +116,6 @@ defmodule Gelfx do
   # 2 magic bytes + 8 Msg ID + 1 seq number + 1 seq count
   @chunk_header_bytes 12
 
-  def __after_compile__(%{line: line, file: file}, _bytecode) do
-    json_library =
-      default_conf()
-      |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
-      |> Keyword.get(:json_library)
-
-    stacktrace = [{__MODULE__, :__MODULE__, 1, [file: to_charlist(file), line: line]}]
-
-    with {:module, _module} <- Code.ensure_compiled(json_library),
-         true <- function_exported?(json_library, :encode, 1) do
-      case apply(json_library, :encode, [%{}]) do
-        {:ok, _} ->
-          :ok
-
-        _ ->
-          IO.warn(
-            [
-              "JSON library ",
-              inspect(json_library),
-              " function encode/1 does not return an {:ok, json} tuple"
-            ],
-            stacktrace
-          )
-      end
-    else
-      {:error, reason} ->
-        IO.warn(
-          [
-            "JSON library ",
-            inspect(json_library),
-            " is not available - ",
-            inspect(reason)
-          ],
-          stacktrace
-        )
-
-      false ->
-        IO.warn(
-          [
-            "JSON library ",
-            inspect(json_library),
-            " does not implement a public function encode/1 "
-          ],
-          stacktrace
-        )
-    end
-  end
-
   @impl true
   def init(__MODULE__) do
     config = Keyword.merge(default_conf(), Application.get_env(:logger, __MODULE__, []))
@@ -173,10 +123,23 @@ defmodule Gelfx do
   end
 
   def init({__MODULE__, options}) do
-    {:ok, config(options, %__MODULE__{})}
+    state = config(options, %__MODULE__{})
+
+    case check_json_library(state) do
+      {:ok, _json} ->
+        {:ok, state}
+
+      {:error, reason} ->
+        Logger.error(["gelfx failed to initialize: ", reason])
+        {:error, :ignore}
+    end
   end
 
-  defp init(config, %__MODULE__{} = state) do
+  defp config(options, state) do
+    config = Keyword.merge(Application.get_env(:logger, __MODULE__, []), options)
+
+    Application.put_env(:logger, __MODULE__, config)
+
     state = %__MODULE__{
       state
       | compression: Keyword.get(config, :compression),
@@ -211,14 +174,6 @@ defmodule Gelfx do
       conn ->
         %{state | conn: conn}
     end
-  end
-
-  defp config(options, state) do
-    config = Keyword.merge(Application.get_env(:logger, __MODULE__, []), options)
-
-    Application.put_env(:logger, __MODULE__, config)
-
-    init(config, state)
   end
 
   @impl true
@@ -614,5 +569,30 @@ defmodule Gelfx do
     @default_conf
     |> Keyword.put(:hostname, hostname())
     |> Keyword.put(:utc_log, Application.get_env(:logger, :utc_log, false))
+  end
+
+  defp check_json_library(%__MODULE__{json_library: json_library}) do
+    with {:module, _module} <- Code.ensure_compiled(json_library),
+         true <- function_exported?(json_library, :encode, 1) do
+      case apply(json_library, :encode, [%{}]) do
+        {:ok, json} when is_binary(json) ->
+          {:ok, json_library}
+
+        _ ->
+          msg = inspect(json_library) <> " function encode/1 does not return an {:ok, json} tuple"
+
+          {:error, msg}
+      end
+    else
+      {:error, reason} ->
+        msg = inspect(json_library) <> " is not available - " <> inspect(reason)
+
+        {:error, msg}
+
+      false ->
+        msg = inspect(json_library) <> " does not implement a public function encode/1 "
+
+        {:error, msg}
+    end
   end
 end
