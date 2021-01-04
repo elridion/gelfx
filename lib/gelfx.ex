@@ -276,6 +276,8 @@ defmodule Gelfx do
       key ->
         send(self(), :flush_buffer)
 
+        # this has to be `Enum.reduce` since each event is stored using the
+        # erlang monotonic time, thus duplicates are possible.
         Enum.reduce(
           :ets.take(__MODULE__, key),
           {:ok, state},
@@ -547,13 +549,11 @@ defmodule Gelfx do
   end
 
   defp message_id do
-    mt = :erlang.monotonic_time()
+    monotonic_timestamp = :erlang.monotonic_time()
 
-    ot =
-      :os.timestamp()
-      |> :calendar.time_to_seconds()
+    os_timestamp = :calendar.time_to_seconds(:os.timestamp())
 
-    <<ot::integer-32, mt::integer-32>>
+    <<os_timestamp::integer-32, monotonic_timestamp::integer-32>>
   end
 
   defp discard? do
