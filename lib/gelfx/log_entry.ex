@@ -6,6 +6,8 @@ defmodule Gelfx.LogEntry do
 
   @unix_epoch 62_167_219_200
 
+  @default_message_format "[$level] $message\n"
+
   @loglevel [
     emergency: 0,
     alert: 1,
@@ -33,14 +35,10 @@ defmodule Gelfx.LogEntry do
         additional_metadata,
         hostname,
         utc?
-      )
-      when is_list(format) do
+      ) do
     metadata = Keyword.merge(metadata, additional_metadata)
 
-    full_message =
-      format
-      |> Formatter.format(level, message, timestamp, metadata)
-      |> IO.chardata_to_string()
+    full_message = formatted_full_message(format, level, message, timestamp, metadata)
 
     short_message = short_message(full_message)
 
@@ -184,5 +182,30 @@ defmodule Gelfx.LogEntry do
 
   def short_message(<<>>, original, _length) do
     original
+  end
+
+  defp formatted_full_message({module, func}, level, message, timestamp, metadata) do
+    try do
+      with true <- Code.ensure_loaded?(module),
+           true <- function_exported?(module, func, 4) do
+        apply(module, func, [level, message, timestamp, metadata])
+      else
+        _ ->
+          compiled_default_message_format
+      end
+    rescue
+      _ ->
+        compiled_default_message_format
+    end
+  end
+
+  defp formatted_full_message(format, level, message, timestamp, metadata) do
+    format
+    |> Formatter.format(level, message, timestamp, metadata)
+    |> IO.chardata_to_string()
+  end
+
+  defp compiled_default_message_format do
+    Logger.Formatter.compile(@default_message_format)
   end
 end
