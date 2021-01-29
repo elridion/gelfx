@@ -1,10 +1,12 @@
 # Gelfx
-Elixir logger backend for Graylog based on GELF.  
+
+Elixir logger backend for Graylog based on GELF.
 Documentation is available on [hex.pm](https://hexdocs.pm/gelfx)
 
 <a href="https://frobese.io/" target="_blank"><img src="images/banner-frobeseio.png" alt="frobese.io logo" width="250"/></a>
 
 ## Installation
+
 The package can be installed by adding `gelfx` to your list of dependencies in `mix.exs`:
 
 ```elixir
@@ -14,7 +16,9 @@ def deps do
   ]
 end
 ```
+
 And adding it to your `:logger` configuration in `config.exs`:
+
 ```elixir
 config :logger,
   backends: [
@@ -22,11 +26,38 @@ config :logger,
     Gelfx
   ]
 ```
+
 Since GELF relies on json to encode the payload Gelfx will need a JSON library. By default Gelfx will use Jason which needs to be added to your deps in mix.exs:
+
 ```elixir
     {:jason, "~> 1.0"}
-``` 
+```
+
+### Custom Log Formatter
+
+You can use your own log formatter in the same way you would define one
+for the Elixir default Logger by giving a tuple of your module and a format
+function of arity 4 e.g. `{MyCustomFormatter, :format}`
+
+```elixir
+config :logger, backends: [:console, Gelfx]
+
+config :logger, Gelfx,
+  format: {MyCustomFormatter, :format}
+```
+
+Where your custom logger implements a 4 arity function to format e.g.
+
+```elixir
+defmodule MyCustomFormatter do
+  def format(level, message, timestamp, metadata) do
+    "[custom-formatter][#{level}] #{message}\n"
+  end
+end
+```
+
 ## Features
+
 Gelfx has full support of the Elixir Logger and Gelf/Graylog features.
 
 - Support for __TCP__, __UDP__, and __HTTP__
@@ -39,6 +70,7 @@ Gelfx has full support of the Elixir Logger and Gelf/Graylog features.
 - Support for the `utc_log` Logger option, since GELF expects utc timestamps this has to be handled accordingly
 
 ## Copyright and License
+
 Copyright 2020 Hans Bernhard Gödeke
 
 Licensed under the Apache License, Version 2.0 (the "License");
