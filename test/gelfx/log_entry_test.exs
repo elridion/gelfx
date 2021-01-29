@@ -45,5 +45,25 @@ defmodule Gelfx.LogEntryTest do
       assert entry["_email"] == "email@test.local"
       assert entry["_meta"] == "test"
     end
+
+    test "uses default log message if issues with custom logger format" do
+      event =
+        {4, nil,
+         {Logger, "test-message", {{2021, 01, 01}, {01, 01, 01, 01}},
+          [email: "email@test.local"]}}
+
+      entry = Gelfx.LogEntry.from_event(event, %Gelfx{
+        format: {TestFormatter, :bad_format},
+        hostname: "test.local",
+        utc_log: true,
+        metadata: []
+      })
+      assert entry[:full_message] == "test-message"
+      assert entry[:host] == "test.local"
+      assert entry[:short_message] == "test-message"
+      assert entry[:timestamp]
+      assert entry[:version]
+      assert entry["_email"] == "email@test.local"
+    end
   end
 end

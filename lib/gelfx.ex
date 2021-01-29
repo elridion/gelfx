@@ -144,7 +144,7 @@ defmodule Gelfx do
       state
       | compression: Keyword.get(config, :compression),
         connection_timeout: Keyword.get(config, :connection_timeout),
-        format: Formatter.compile(Keyword.get(config, :format)),
+        format: Keyword.get(config, :format),
         host: Keyword.get(config, :host),
         hostname: Keyword.get(config, :hostname),
         json_library: Keyword.get(config, :json_library),
