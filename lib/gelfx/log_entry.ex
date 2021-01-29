@@ -33,8 +33,7 @@ defmodule Gelfx.LogEntry do
         additional_metadata,
         hostname,
         utc?
-      )
-      when is_list(format) do
+      ) do
     metadata = Keyword.merge(metadata, additional_metadata)
 
     full_message =
