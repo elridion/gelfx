@@ -95,6 +95,9 @@ defmodule Gelfx.LogEntry do
           is_atom(value) ->
             Atom.to_string(value)
 
+          is_pid(value) ->
+            inspect(value)
+
           true ->
             :error
         end
