@@ -35,10 +35,7 @@ defmodule TestHelper.UdpServer do
     handle_packet(packet, state)
   end
 
-  defp handle_packet(
-         <<0x1E, 0x0F, msg_id::bytes-size(8), seq_nr::8, chunk_count::8, chunck::binary>>,
-         state
-       ) do
+  defp handle_packet(<<0x1E, 0x0F, msg_id::bytes-size(8), seq_nr::8, chunk_count::8, chunck::binary>>, state) do
     msg_buffer =
       state.buffer
       |> Map.get(msg_id, List.duplicate(nil, chunk_count))

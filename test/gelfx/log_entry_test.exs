@@ -21,20 +21,19 @@ defmodule Gelfx.LogEntryTest do
     setup context do
       args = [
         format: {TestFormatter, :format},
-        metadata: [meta: "test", pid: :erlang.list_to_pid('<0.450.0>')],
+        metadata: [meta: "test", pid: :erlang.list_to_pid(~c"<0.450.0>")],
         hostname: "test.local",
         utc_log: true
       ]
 
       {:ok, gelfx} = Gelfx.init({Gelfx, args})
 
-      Map.merge(context, %{gelfx: gelfx})
+      Map.put(context, :gelfx, gelfx)
     end
 
     test "allows custom logger format module", %{gelfx: gelfx} do
       event =
-        {4, nil,
-         {Logger, "test-message", {{2021, 01, 01}, {01, 01, 01, 01}}, [email: "email@test.local"]}}
+        {4, nil, {Logger, "test-message", {{2021, 01, 01}, {01, 01, 01, 01}}, [email: "email@test.local"]}}
 
       entry = Gelfx.LogEntry.from_event(event, gelfx)
 
