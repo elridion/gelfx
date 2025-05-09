@@ -13,7 +13,13 @@ defmodule Gelfx.MixProject do
       package: package(),
       deps: deps(),
       docs: docs(),
-      elixirc_paths: elixirc_paths(Mix.env())
+      elixirc_paths: elixirc_paths(Mix.env()),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -33,12 +39,16 @@ defmodule Gelfx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.1", only: [:dev, :test]},
-      {:ex_doc, "~> 0.19", only: :dev}
+      {:jason, "~> 1.4"},
+      {:ex_doc, "~> 0.38.0", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18.5", only: :test},
+      {:styler, "~> 1.0.0", only: [:dev, :test], runtime: false},
+      {:eunomo, "~> 3.0.0", only: :dev}
     ]
   end
 
-  defp description() do
+  defp description do
     "Elixir logger backend for Graylog based on GELF"
   end
 
@@ -50,7 +60,7 @@ defmodule Gelfx.MixProject do
     ]
   end
 
-  defp package() do
+  defp package do
     [
       maintainers: ["Hans Gödeke"],
       files: ~w(lib .formatter.exs mix.exs README* LICENSE*),
