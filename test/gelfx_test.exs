@@ -1,7 +1,11 @@
 defmodule GelfxTest do
   use ExUnit.Case, async: false, capture_log: true
+
+  alias TestHelper.TcpServer
+  alias TestHelper.UdpServer
+
   require Logger
-  alias TestHelper.{TcpServer, UdpServer}
+
   doctest Gelfx
 
   @logging_wait 1000
@@ -56,14 +60,7 @@ defmodule GelfxTest do
         |> Enum.sort()
 
       messages =
-        [
-          "send_offline0",
-          "send_offline1",
-          "send_offline2",
-          "send_offline3",
-          "send_online"
-        ]
-        |> Enum.sort()
+        Enum.sort(["send_offline0", "send_offline1", "send_offline2", "send_offline3", "send_online"])
 
       assert tcp_messages == messages
     end
@@ -75,7 +72,7 @@ defmodule GelfxTest do
       TcpServer.listen()
       debug("debug")
       info("info")
-      warn("warn")
+      warning("warning")
       error("error")
       Process.sleep(@logging_wait)
       assert [%{"full_message" => "error"}] = TcpServer.all()
@@ -175,8 +172,8 @@ defmodule GelfxTest do
     Process.sleep(@logging_wait)
   end
 
-  defp warn(msg) do
-    Logger.warn(msg)
+  defp warning(msg) do
+    Logger.warning(msg)
     Logger.flush()
     Process.sleep(@logging_wait)
   end
