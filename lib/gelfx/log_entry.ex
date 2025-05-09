@@ -18,12 +18,7 @@ defmodule Gelfx.LogEntry do
     debug: 7
   ]
 
-  def from_event(event, %Gelfx{
-        format: format,
-        metadata: metadata,
-        hostname: hostname,
-        utc_log: utc?
-      }) do
+  def from_event(event, %Gelfx{format: format, metadata: metadata, hostname: hostname, utc_log: utc?}) do
     from_event(event, format, metadata, hostname, utc?)
   end
 
@@ -43,23 +38,27 @@ defmodule Gelfx.LogEntry do
 
     short_message = short_message(full_message)
 
-    timestamp =
+    if_result =
       if utc? do
         timestamp
       else
         timestamp_to_utc(timestamp)
       end
-      |> timestamp_to_unix()
 
-    %{
-      version: @gelf_version,
-      host: hostname,
-      short_message: short_message,
-      full_message: full_message,
-      timestamp: timestamp,
-      level: log_level(level)
-    }
-    |> add_metadata(metadata)
+    timestamp =
+      timestamp_to_unix(if_result)
+
+    add_metadata(
+      %{
+        version: @gelf_version,
+        host: hostname,
+        short_message: short_message,
+        full_message: full_message,
+        timestamp: timestamp,
+        level: log_level(level)
+      },
+      metadata
+    )
   end
 
   def add_metadata(log_entry, []) do
@@ -174,8 +173,7 @@ defmodule Gelfx.LogEntry do
   end
 
   for {bound, length} <- [{0x7F, 1}, {0x7FF, 2}, {0xFFFF, 3}] do
-    def short_message(<<char::utf8, rest::binary>>, original, length)
-        when char <= unquote(bound) do
+    def short_message(<<char::utf8, rest::binary>>, original, length) when char <= unquote(bound) do
       short_message(rest, original, length + unquote(length))
     end
   end

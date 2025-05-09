@@ -92,10 +92,10 @@ defmodule Gelfx do
 
   @behaviour :gen_event
 
-  require Logger
-
+  alias Gelfx.LogEntry
   alias Logger.Formatter
-  alias Gelfx.{LogEntry}
+
+  require Logger
 
   defstruct [
     :compression,
@@ -118,7 +118,7 @@ defmodule Gelfx do
     host: "localhost",
     json_library: Jason,
     metadata: [],
-    port: 12201,
+    port: 12_201,
     protocol: :udp
   ]
 
@@ -220,10 +220,7 @@ defmodule Gelfx do
     {:ok, state}
   end
 
-  def handle_event(
-        {level, group_leader, {Logger, _message, _timestamp, _metadata}} = event,
-        state
-      ) do
+  def handle_event({level, group_leader, {Logger, _message, _timestamp, _metadata}} = event, state) do
     if meet_level?(level, state.level) and node(group_leader) == node() do
       event
       |> LogEntry.from_event(state)
@@ -257,7 +254,7 @@ defmodule Gelfx do
   def handle_info({:tcp_error, socket, reason}, state) do
     case state do
       %{conn: {:tcp, ^socket}} ->
-        Logger.warn(["TCP connection error ", inspect(reason)])
+        Logger.warning(["TCP connection error ", inspect(reason)])
         handle_info(:retry, close_conn(state))
 
       _ ->
@@ -268,7 +265,7 @@ defmodule Gelfx do
   def handle_info({:tcp_closed, socket}, state) do
     case state do
       %{conn: {:tcp, ^socket}} ->
-        Logger.warn("TCP connection closed")
+        Logger.warning("TCP connection closed")
         handle_info(:retry, close_conn(state))
 
       _ ->
@@ -276,8 +273,7 @@ defmodule Gelfx do
     end
   end
 
-  def handle_info(:flush_buffer, %{conn: {prot, _}} = state)
-      when prot in [:tcp, :udp] do
+  def handle_info(:flush_buffer, %{conn: {prot, _}} = state) when prot in [:tcp, :udp] do
     case :ets.first(__MODULE__) do
       :"$end_of_table" ->
         {:ok, state}
@@ -381,12 +377,7 @@ defmodule Gelfx do
     |> spawn_conn()
   end
 
-  def spawn_conn(%__MODULE__{
-        protocol: protocol,
-        host: host,
-        port: port,
-        connection_timeout: timeout
-      }) do
+  def spawn_conn(%__MODULE__{protocol: protocol, host: host, port: port, connection_timeout: timeout}) do
     spawn_conn(protocol, host, port, timeout)
   end
 
@@ -420,7 +411,7 @@ defmodule Gelfx do
   def spawn_conn(:http, host, port, _timeout) do
     :inets.start()
 
-    {:http, List.flatten(['http://', host, ?:, Integer.to_charlist(port) | '/gelf'])}
+    {:http, List.flatten([~c"http://", host, ?:, Integer.to_charlist(port) | ~c"/gelf"])}
   end
 
   @doc false
@@ -480,8 +471,7 @@ defmodule Gelfx do
     |> submit(conn, nil)
   end
 
-  def submit(payload, {:udp, {socket, host, port, chunk_threshold}}, _comp)
-      when byte_size(payload) <= chunk_threshold do
+  def submit(payload, {:udp, {socket, host, port, chunk_threshold}}, _comp) when byte_size(payload) <= chunk_threshold do
     case :gen_udp.send(socket, host, port, payload) do
       :ok -> :ok
       _ -> :error
@@ -494,8 +484,7 @@ defmodule Gelfx do
     msg_id = message_id()
 
     for {seq_nr, chunck} <- chunks do
-      <<0x1E, 0x0F, msg_id::bytes-size(8), seq_nr::8, chunk_count::8, chunck::binary>>
-      |> submit(conn, comp)
+      submit(<<0x1E, 0x0F, msg_id::bytes-size(8), seq_nr::8, chunk_count::8, chunck::binary>>, conn, comp)
     end
   end
 
@@ -503,7 +492,7 @@ defmodule Gelfx do
   def submit(payload, {:http, url}, :gzip) do
     :httpc.request(
       :post,
-      {url, [{'Content-Encoding', 'gzip'}], 'application/json', :zlib.gzip(payload)},
+      {url, [{~c"Content-Encoding", ~c"gzip"}], ~c"application/json", :zlib.gzip(payload)},
       [],
       []
     )
@@ -512,7 +501,7 @@ defmodule Gelfx do
   end
 
   def submit(payload, {:http, url}, _comp) do
-    :httpc.request(:post, {url, [], 'application/json', payload}, [], [])
+    :httpc.request(:post, {url, [], ~c"application/json", payload}, [], [])
 
     :ok
   end
