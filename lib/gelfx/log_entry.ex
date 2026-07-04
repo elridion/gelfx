@@ -38,7 +38,7 @@ defmodule Gelfx.LogEntry do
 
     short_message = short_message(full_message)
 
-    if_result =
+    utc_timestamp =
       if utc? do
         timestamp
       else
@@ -46,7 +46,7 @@ defmodule Gelfx.LogEntry do
       end
 
     timestamp =
-      timestamp_to_unix(if_result)
+      timestamp_to_unix(utc_timestamp)
 
     add_metadata(
       %{

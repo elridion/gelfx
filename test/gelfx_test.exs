@@ -60,7 +60,13 @@ defmodule GelfxTest do
         |> Enum.sort()
 
       messages =
-        Enum.sort(["send_offline0", "send_offline1", "send_offline2", "send_offline3", "send_online"])
+        Enum.sort([
+          "send_offline0",
+          "send_offline1",
+          "send_offline2",
+          "send_offline3",
+          "send_online"
+        ])
 
       assert tcp_messages == messages
     end

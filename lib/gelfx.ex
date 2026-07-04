@@ -51,7 +51,7 @@ defmodule Gelfx do
   Key collisions are __NOT__ prevented by Gelfx, additionally the keys `id` and `_id` are automatically omitted due to the GELF specification.
 
   ## Custom formatting
-  You can use your own log formatter in the same way you would define one for the Elixir default Logger.  
+  You can use your own log formatter in the same way you would define one for the Elixir default Logger.
   More information can be found [here](https://hexdocs.pm/logger/Logger.html#module-custom-formatting) in the Logger documentation.
 
   ```elixir
@@ -491,7 +491,11 @@ defmodule Gelfx do
     msg_id = message_id()
 
     for {seq_nr, chunck} <- chunks do
-      submit(<<0x1E, 0x0F, msg_id::bytes-size(8), seq_nr::8, chunk_count::8, chunck::binary>>, conn, comp)
+      submit(
+        <<0x1E, 0x0F, msg_id::bytes-size(8), seq_nr::8, chunk_count::8, chunck::binary>>,
+        conn,
+        comp
+      )
     end
   end
 
