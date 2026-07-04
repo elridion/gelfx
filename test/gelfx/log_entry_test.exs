@@ -19,6 +19,11 @@ defmodule Gelfx.LogEntryTest do
 
   describe "from_event/2" do
     setup context do
+      # Gelfx.init/1 persists its config via Application.put_env, which would
+      # leak the format/utc_log/hostname options below into other test modules
+      env = Application.get_env(:logger, Gelfx, [])
+      on_exit(fn -> Application.put_env(:logger, Gelfx, env) end)
+
       args = [
         format: {TestFormatter, :format},
         metadata: [meta: "test", pid: :erlang.list_to_pid(~c"<0.450.0>")],
