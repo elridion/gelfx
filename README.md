@@ -10,7 +10,7 @@ The package can be installed by adding `gelfx` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:gelfx, "~> 1.0"}
+    {:gelfx, "~> 2.0"}
   ]
 end
 ```
