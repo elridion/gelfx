@@ -1,13 +1,13 @@
 defmodule Gelfx.MixProject do
   use Mix.Project
 
-  @version "1.2.0"
+  @version "1.3.0"
 
   def project do
     [
       app: :gelfx,
       version: @version,
-      elixir: "~> 1.6",
+      elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       description: description(),
       package: package(),
@@ -64,7 +64,7 @@ defmodule Gelfx.MixProject do
     [
       maintainers: ["Hans Gödeke"],
       files: ~w(lib .formatter.exs mix.exs README* LICENSE*),
-      licenses: ["Apache 2.0"],
+      licenses: ["Apache-2.0"],
       links: %{
         "GitHub" => "https://github.com/elridion/gelfx",
         "Graylog" => "https://www.graylog.org/"
