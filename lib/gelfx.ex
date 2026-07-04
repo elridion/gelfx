@@ -127,8 +127,7 @@ defmodule Gelfx do
 
   @impl true
   def init(__MODULE__) do
-    config = Keyword.merge(default_conf(), Application.get_env(:logger, __MODULE__, []))
-    init({__MODULE__, config})
+    init({__MODULE__, []})
   end
 
   def init({__MODULE__, options}) do
@@ -145,7 +144,10 @@ defmodule Gelfx do
   end
 
   defp config(options, state) do
-    config = Keyword.merge(Application.get_env(:logger, __MODULE__, []), options)
+    config =
+      default_conf()
+      |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
+      |> Keyword.merge(options)
 
     Application.put_env(:logger, __MODULE__, config)
 
