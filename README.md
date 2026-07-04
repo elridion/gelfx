@@ -2,8 +2,6 @@
 Elixir logger backend for Graylog based on GELF.  
 Documentation is available on [hex.pm](https://hexdocs.pm/gelfx)
 
-<a href="https://frobese.io/" target="_blank"><img src="images/banner-frobeseio.png" alt="frobese.io logo" width="250"/></a>
-
 ## Installation
 The package can be installed by adding `gelfx` to your list of dependencies in `mix.exs`:
 
