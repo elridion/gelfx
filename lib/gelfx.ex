@@ -20,9 +20,12 @@ defmodule Gelfx do
       Gelfx
     ]
   ```
-  Since GELF relies on json to encode the payload Gelfx will need a JSON library. By default Gelfx will use Jason which needs to be added to your deps in mix.exs:
-
-      {:jason, "~> 1.0"}
+  Since Elixir 1.15 Logger backends live in the `:logger_backends` package, which Gelfx depends on.
+  Backends can also be added at runtime using `LoggerBackends.add/1`:
+  ```elixir
+  LoggerBackends.add(Gelfx)
+  ```
+  Since GELF relies on json to encode the payload Gelfx uses the `JSON` module included in Elixir (requires Elixir 1.18 or later).
 
   ## Options
   Besides `:level`, `:format` and `:metadata`, which are advised by [Logger](https://hexdocs.pm/logger/Logger.html#module-custom-backends) Gelfx supports:
@@ -33,7 +36,6 @@ defmodule Gelfx do
   - `:compression` - either `:gzip` or `:zlib` can be set and will be used for package compression when UDP or HTTP (only gzip) is used as protocol
   - `:format` - defaults to `"$message"`
   - `:hostname` - used as source field in the GELF message, defaults to the hostname returned by `:inet.gethostname()`
-  - `:json_library` - json library to use, has to implement a `encode/1` which returns a `{:ok, json}` tuple in case of success
   - `:utc_log` - this option should not be configured directly. But rather by setting the `:utc_log` option in the `Logger` config. Should the Logger config change after the Gelfx backend is initialized the option has to be reconfigured.
 
   ### HTTP
@@ -104,7 +106,6 @@ defmodule Gelfx do
     :format,
     :host,
     :hostname,
-    :json_library,
     :level,
     :metadata,
     :port,
@@ -116,7 +117,6 @@ defmodule Gelfx do
     connection_timeout: 5_000,
     format: "$message",
     host: "localhost",
-    json_library: Jason,
     metadata: [],
     port: 12_201,
     protocol: :udp
@@ -131,19 +131,10 @@ defmodule Gelfx do
   end
 
   def init({__MODULE__, options}) do
-    state = config(options, %__MODULE__{})
-
-    case check_json_library(state) do
-      {:ok, _json} ->
-        {:ok, state}
-
-      {:error, reason} ->
-        Logger.error(["gelfx failed to initialize: ", reason])
-        {:error, :ignore}
-    end
+    {:ok, config(options, %__MODULE__{})}
   end
 
-  defp config(options, state) do
+  defp config(options, %__MODULE__{} = state) do
     config =
       default_conf()
       |> Keyword.merge(Application.get_env(:logger, __MODULE__, []))
@@ -158,7 +149,6 @@ defmodule Gelfx do
         format: Formatter.compile(Keyword.get(config, :format)),
         host: Keyword.get(config, :host),
         hostname: Keyword.get(config, :hostname),
-        json_library: Keyword.get(config, :json_library),
         level: Keyword.get(config, :level),
         metadata: Keyword.get(config, :metadata),
         port: Keyword.get(config, :port),
@@ -226,7 +216,7 @@ defmodule Gelfx do
     if meet_level?(level, state.level) and node(group_leader) == node() do
       event
       |> LogEntry.from_event(state)
-      |> encode(state)
+      |> encode()
       |> case do
         {:ok, json} ->
           submit(json, state)
@@ -340,7 +330,6 @@ defmodule Gelfx do
       compression: state.compression,
       format: state.format,
       host: state.host,
-      json_library: state.json_library,
       level: state.level,
       metadata: state.metadata,
       port: state.port,
@@ -354,10 +343,12 @@ defmodule Gelfx do
   end
 
   @doc """
-  Encodes the given `LogEntry` using the configured json library
+  Encodes the given `LogEntry` using the `JSON` module included in Elixir
   """
-  def encode(log_entry, %__MODULE__{json_library: json}) when is_map(log_entry) do
-    apply(json, :encode, [log_entry])
+  def encode(log_entry) when is_map(log_entry) do
+    {:ok, JSON.encode!(log_entry)}
+  rescue
+    error -> {:error, error}
   end
 
   @compile {:inline, meet_level?: 2}
@@ -549,7 +540,7 @@ defmodule Gelfx do
 
   defp chunk(binary, chunk_length, sequence_number \\ 0) do
     case binary do
-      <<chunk::bytes-size(chunk_length), rest::binary>> ->
+      <<chunk::bytes-size(^chunk_length), rest::binary>> ->
         [{sequence_number, chunk} | chunk(rest, chunk_length, sequence_number + 1)]
 
       _ ->
@@ -578,30 +569,5 @@ defmodule Gelfx do
     @default_conf
     |> Keyword.put(:hostname, hostname())
     |> Keyword.put(:utc_log, Application.get_env(:logger, :utc_log, false))
-  end
-
-  defp check_json_library(%__MODULE__{json_library: json_library}) do
-    with {:module, _module} <- Code.ensure_compiled(json_library),
-         true <- function_exported?(json_library, :encode, 1) do
-      case apply(json_library, :encode, [%{}]) do
-        {:ok, json} when is_binary(json) ->
-          {:ok, json_library}
-
-        _ ->
-          msg = inspect(json_library) <> " function encode/1 does not return an {:ok, json} tuple"
-
-          {:error, msg}
-      end
-    else
-      {:error, reason} ->
-        msg = inspect(json_library) <> " is not available - " <> inspect(reason)
-
-        {:error, msg}
-
-      false ->
-        msg = inspect(json_library) <> " does not implement a public function encode/1 "
-
-        {:error, msg}
-    end
   end
 end

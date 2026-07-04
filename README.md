@@ -22,10 +22,12 @@ config :logger,
     Gelfx
   ]
 ```
-Since GELF relies on json to encode the payload Gelfx will need a JSON library. By default Gelfx will use Jason which needs to be added to your deps in mix.exs:
+Since Elixir 1.15 Logger backends live in the `:logger_backends` package, which Gelfx depends on. Backends can also be added at runtime using `LoggerBackends.add/1`:
 ```elixir
-    {:jason, "~> 1.0"}
-``` 
+LoggerBackends.add(Gelfx)
+```
+Since GELF relies on json to encode the payload Gelfx uses the `JSON` module included in Elixir (requires Elixir 1.18 or later).
+
 ## Features
 Gelfx has full support of the Elixir Logger and Gelf/Graylog features.
 

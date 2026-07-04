@@ -52,7 +52,7 @@ defmodule TestHelper.UdpServer do
 
   defp handle_packet(packet, state) do
     message =
-      case Jason.decode(packet) do
+      case JSON.decode(packet) do
         {:ok, json} -> json
         _ -> packet
       end

@@ -7,15 +7,20 @@ defmodule Gelfx.MixProject do
     [
       app: :gelfx,
       version: @version,
-      elixir: "~> 1.11",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       description: description(),
       package: package(),
       deps: deps(),
       docs: docs(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
+      test_coverage: [tool: ExCoveralls]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.html": :test
@@ -39,7 +44,7 @@ defmodule Gelfx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.4"},
+      {:logger_backends, "~> 1.0"},
       {:ex_doc, "~> 0.38.0", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18.5", only: :test},

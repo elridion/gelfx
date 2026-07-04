@@ -12,16 +12,16 @@ defmodule GelfxTest do
 
   describe "TCP Test" do
     setup do
-      Logger.configure(utc_log: false)
+      LoggerBackends.configure(utc_log: false)
 
       {:ok, server} = start_tcp()
       # start_tcp()
-      Logger.add_backend(Gelfx)
-      Logger.configure_backend(Gelfx, protocol: :tcp, level: :info)
+      LoggerBackends.add(Gelfx)
+      LoggerBackends.configure(Gelfx, protocol: :tcp, level: :info)
       TcpServer.listen()
 
       on_exit(&stop_tcp/0)
-      on_exit(fn -> Logger.remove_backend(Gelfx) end)
+      on_exit(fn -> LoggerBackends.remove(Gelfx) end)
 
       {:ok, server: server}
     end
@@ -73,7 +73,7 @@ defmodule GelfxTest do
 
     @tag :tcp
     test "cache discard" do
-      Logger.configure_backend(Gelfx, level: :error)
+      LoggerBackends.configure(Gelfx, level: :error)
       Process.sleep(@logging_wait)
       TcpServer.listen()
       debug("debug")
@@ -91,8 +91,8 @@ defmodule GelfxTest do
       assert %{"timestamp" => timestamp} = TcpServer.pop()
       assert_in_delta(timestamp, now, 2)
 
-      Logger.configure(utc_log: true)
-      Logger.configure_backend(Gelfx, utc_log: true)
+      LoggerBackends.configure(utc_log: true)
+      LoggerBackends.configure(Gelfx, utc_log: true)
       TcpServer.listen()
 
       now = :os.system_time(:seconds)
@@ -105,14 +105,14 @@ defmodule GelfxTest do
 
   describe "UDP Test" do
     setup do
-      Logger.configure(utc_log: false)
+      LoggerBackends.configure(utc_log: false)
 
       {:ok, server} = start_udp()
-      Logger.add_backend(Gelfx)
-      Logger.configure_backend(Gelfx, protocol: :udp, level: :info)
+      LoggerBackends.add(Gelfx)
+      LoggerBackends.configure(Gelfx, protocol: :udp, level: :info)
 
       on_exit(&stop_udp/0)
-      on_exit(fn -> Logger.remove_backend(Gelfx) end)
+      on_exit(fn -> LoggerBackends.remove(Gelfx) end)
 
       {:ok, server: server}
     end
@@ -134,7 +134,7 @@ defmodule GelfxTest do
     # @tag :udp
     # @tag :gzip
     # test "compression" do
-    #   Logger.configure_backend(Gelfx, compression: :gzip)
+    #   LoggerBackends.configure(Gelfx, compression: :gzip)
     #   Process.sleep(@logging_wait)
 
     #   info("hiho was sind wir froh")
@@ -146,7 +146,7 @@ defmodule GelfxTest do
     #   # assert {:ok, uncompressed} = :gzip.
 
     #   # assert %{"full_message" => "hiho was sind wir froh"} =
-    #   Logger.configure_backend(Gelfx, compression: nil)
+    #   LoggerBackends.configure(Gelfx, compression: nil)
     # end
   end
 

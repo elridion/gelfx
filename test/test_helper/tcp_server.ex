@@ -76,7 +76,7 @@ defmodule TestHelper.TcpServer do
   defp parse_buffer(state) do
     case parse_stream(state.buffer) do
       {:ok, part, rest} ->
-        package = Jason.decode!(part)
+        package = JSON.decode!(part)
         parse_buffer(%{state | buffer: rest, messages: :queue.in(package, state.messages)})
 
       {:error, rest} ->
