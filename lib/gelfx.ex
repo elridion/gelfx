@@ -70,7 +70,7 @@ defmodule Gelfx do
   | `:critical` | Critical | 2 | |
   | `:error` | Error | 3 | |
   | `:warning` | Warning | 4 | |
-  | `:warn` | -- | -- | Same as `:warning` was soft-depracted in elixir 1.11 |
+  | `:warn` | -- | -- | Same as `:warning` was soft-deprecated in elixir 1.11 |
   | `:notice` | Notice | 5 | |
   | `:info` | Informational | 6 | |
   | `:debug` | Debug | 7 | |
@@ -363,6 +363,11 @@ defmodule Gelfx do
   @compile {:inline, meet_level?: 2}
   @doc false
   def meet_level?(_lvl, nil), do: true
+
+  # events dispatched to legacy backends still carry :warn instead of :warning
+  def meet_level?(:warn, min), do: meet_level?(:warning, min)
+
+  def meet_level?(lvl, :warn), do: meet_level?(lvl, :warning)
 
   def meet_level?(lvl, min) do
     Logger.compare_levels(lvl, min) != :lt
