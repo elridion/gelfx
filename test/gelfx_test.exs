@@ -1,5 +1,5 @@
 defmodule GelfxTest do
-  use ExUnit.Case, async: false, capture_log: true
+  use ExUnit.Case, async: false
 
   alias TestHelper.TcpServer
   alias TestHelper.UdpServer
