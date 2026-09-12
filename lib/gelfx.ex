@@ -275,19 +275,7 @@ defmodule Gelfx do
 
         # this has to be `Enum.reduce` since each event is stored using the
         # erlang monotonic time, thus duplicates are possible.
-        Enum.reduce(
-          :ets.take(__MODULE__, key),
-          {:ok, state},
-          fn {_, event}, acc ->
-            case acc do
-              {:ok, state} ->
-                handle_event(event, state)
-
-              error ->
-                error
-            end
-          end
-        )
+        Enum.reduce(:ets.take(__MODULE__, key), {:ok, state}, &reduce_event/2)
     end
   end
 
@@ -316,6 +304,9 @@ defmodule Gelfx do
   def handle_info(_msg, state) do
     {:ok, state}
   end
+
+  defp reduce_event({_, event}, {:ok, state}), do: handle_event(event, state)
+  defp reduce_event(_event, error), do: error
 
   @impl true
   def code_change(_old_vsn, state, _extra) do

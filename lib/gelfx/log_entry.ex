@@ -72,36 +72,7 @@ defmodule Gelfx.LogEntry do
   end
 
   def add_metadata(log_entry, {key, value}) do
-    value
-    |> case do
-      %NaiveDateTime{} ->
-        NaiveDateTime.to_iso8601(value)
-
-      %Date{} ->
-        Date.to_iso8601(value)
-
-      %DateTime{} ->
-        DateTime.to_iso8601(value)
-
-      value ->
-        cond do
-          is_binary(value) and String.valid?(value) ->
-            value
-
-          is_number(value) ->
-            value
-
-          is_atom(value) ->
-            Atom.to_string(value)
-
-          is_pid(value) ->
-            inspect(value)
-
-          true ->
-            :error
-        end
-    end
-    |> case do
+    case cast_value(value) do
       :error ->
         log_entry
 
@@ -112,6 +83,19 @@ defmodule Gelfx.LogEntry do
         end
     end
   end
+
+  defp cast_value(%NaiveDateTime{} = value), do: NaiveDateTime.to_iso8601(value)
+  defp cast_value(%Date{} = value), do: Date.to_iso8601(value)
+  defp cast_value(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp cast_value(value) when is_number(value), do: value
+  defp cast_value(value) when is_atom(value), do: Atom.to_string(value)
+  defp cast_value(value) when is_pid(value), do: inspect(value)
+
+  defp cast_value(value) when is_binary(value) do
+    if String.valid?(value), do: value, else: :error
+  end
+
+  defp cast_value(_value), do: :error
 
   def get_key(key) when is_atom(key) do
     key
