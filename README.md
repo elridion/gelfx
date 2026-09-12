@@ -1,4 +1,6 @@
 # Gelfx
+[![CI](https://github.com/elridion/gelfx/actions/workflows/ci.yml/badge.svg)](https://github.com/elridion/gelfx/actions/workflows/ci.yml)
+
 Elixir logger backend for Graylog based on GELF.  
 Documentation is available on [hex.pm](https://hexdocs.pm/gelfx)
 
