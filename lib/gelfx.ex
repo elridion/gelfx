@@ -551,7 +551,7 @@ defmodule Gelfx do
   defp message_id do
     monotonic_timestamp = :erlang.monotonic_time()
 
-    os_timestamp = :calendar.time_to_seconds(:os.timestamp())
+    os_timestamp = :os.system_time(:second)
 
     <<os_timestamp::integer-32, monotonic_timestamp::integer-32>>
   end
